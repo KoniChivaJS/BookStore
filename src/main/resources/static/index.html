@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📚 Book Store</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+    <h1>📚 Book Store</h1>
+    <p class="subtitle">Spring Boot + MongoDB — CRUD demo</p>
+</header>
+
+<main>
+    <section class="panel">
+        <div class="toolbar">
+            <input type="search" id="searchInput" placeholder="Пошук за назвою…">
+            <button id="searchBtn" class="btn">Пошук</button>
+            <button id="resetBtn" class="btn btn-ghost">Скинути</button>
+            <span class="spacer"></span>
+            <button id="newBtn" class="btn btn-primary">+ Додати книгу</button>
+        </div>
+
+        <table id="booksTable">
+            <thead>
+            <tr>
+                <th>Назва</th>
+                <th>Автор</th>
+                <th>Жанр</th>
+                <th>ISBN</th>
+                <th class="num">Ціна</th>
+                <th class="num">К-сть</th>
+                <th class="num">Рік</th>
+                <th class="actions-col">Дії</th>
+            </tr>
+            </thead>
+            <tbody id="booksBody">
+            </tbody>
+        </table>
+        <p id="emptyState" class="empty" hidden>Книг не знайдено.</p>
+    </section>
+</main>
+
+<dialog id="bookDialog">
+    <form id="bookForm" method="dialog">
+        <h2 id="dialogTitle">Нова книга</h2>
+        <input type="hidden" id="bookId">
+
+        <label>Назва*<input type="text" id="title" required></label>
+        <label>Автор*<input type="text" id="author" required></label>
+        <label>Жанр<input type="text" id="genre"></label>
+        <label>ISBN<input type="text" id="isbn"></label>
+
+        <div class="row">
+            <label>Ціна<input type="number" id="price" step="0.01" min="0" value="0"></label>
+            <label>Кількість<input type="number" id="stock" min="0" value="0"></label>
+            <label>Рік<input type="number" id="year" min="0" value="2024"></label>
+        </div>
+
+        <p id="formError" class="form-error" hidden></p>
+
+        <menu>
+            <button type="button" id="cancelBtn" class="btn btn-ghost">Скасувати</button>
+            <button type="submit" id="saveBtn" class="btn btn-primary">Зберегти</button>
+        </menu>
+    </form>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
