@@ -1,0 +1,101 @@
+@host = http://localhost:8080
+@contentType = application/json
+@username = admin
+@password = admin123
+
+### 1. GET all books (authorized)
+GET {{host}}/api/books
+Accept: {{contentType}}
+Authorization: Basic {{username}} {{password}}
+
+### 2. Search books by title (authorized)
+GET {{host}}/api/books?title=code
+Accept: {{contentType}}
+Authorization: Basic {{username}} {{password}}
+
+### 3. Search books by author (authorized)
+GET {{host}}/api/books?author=orwell
+Accept: {{contentType}}
+Authorization: Basic {{username}} {{password}}
+
+### 4. CREATE a book (authorized)
+POST {{host}}/api/books
+Content-Type: {{contentType}}
+Authorization: Basic {{username}} {{password}}
+
+{
+  "title": "Domain-Driven Design",
+  "author": "Eric Evans",
+  "genre": "Software Architecture",
+  "isbn": "9780321125217",
+  "price": 54.90,
+  "stock": 5,
+  "year": 2003
+}
+
+> {%
+    client.global.set("bookId", response.body.id);
+    client.test("Created with 201", () => {
+        client.assert(response.status === 201, "Expected 201 but got " + response.status);
+    });
+%}
+
+### 5. GET the book we just created, by id (authorized)
+GET {{host}}/api/books/{{bookId}}
+Accept: {{contentType}}
+Authorization: Basic {{username}} {{password}}
+
+### 6. UPDATE that book - price + stock changed (authorized)
+PUT {{host}}/api/books/{{bookId}}
+Content-Type: {{contentType}}
+Authorization: Basic {{username}} {{password}}
+
+{
+  "title": "Domain-Driven Design",
+  "author": "Eric Evans",
+  "genre": "Software Architecture",
+  "isbn": "9780321125217",
+  "price": 49.99,
+  "stock": 8,
+  "year": 2003
+}
+
+### 7. DELETE that book (authorized)
+DELETE {{host}}/api/books/{{bookId}}
+Authorization: Basic {{username}} {{password}}
+
+> {%
+    client.test("Deleted with 204", () => {
+        client.assert(response.status === 204, "Expected 204 but got " + response.status);
+    });
+%}
+
+### 8. GET a missing book -> 404 (authorized, error handling demo)
+GET {{host}}/api/books/000000000000000000000000
+Accept: {{contentType}}
+Authorization: Basic {{username}} {{password}}
+
+### 9. CREATE invalid book -> 400 (authorized, validation demo)
+POST {{host}}/api/books
+Content-Type: {{contentType}}
+Authorization: Basic {{username}} {{password}}
+
+{
+  "title": "",
+  "author": "",
+  "genre": "n/a",
+  "isbn": "n/a",
+  "price": -3,
+  "stock": 0,
+  "year": 2024
+}
+
+### 10. GET all books WITHOUT credentials -> 401 Unauthorized (proves auth works)
+GET {{host}}/api/books
+Accept: {{contentType}}
+
+> {%
+    client.test("Rejected with 401", () => {
+        client.assert(response.status === 401, "Expected 401 but got " + response.status);
+    });
+%}
