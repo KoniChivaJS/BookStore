@@ -18,6 +18,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+                // CSRF disabled: stateless REST API with HTTP Basic, no browser session to protect
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/**").authenticated()
@@ -26,6 +27,7 @@ public class SecurityConfig {
         return http.build();
     }
 
+    // Single in-memory admin user (made user here instead of application.properties)
     @Bean
     public UserDetailsService userDetailsService(PasswordEncoder encoder) {
         UserDetails admin = User.withUsername("admin")
