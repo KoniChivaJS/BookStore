@@ -5,6 +5,7 @@ import ipz.bookstore.service.BookService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,17 +33,20 @@ public class BookController {
         this.service = service;
     }
 
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'SUPERADMIN')")
     @GetMapping
     public List<Book> list(@RequestParam(required = false) String title,
                            @RequestParam(required = false) String author) {
         return service.search(title, author);
     }
 
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'SUPERADMIN')")
     @GetMapping("/{id}")
     public Book getOne(@PathVariable String id) {
         return service.findById(id);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
     @PostMapping
     public ResponseEntity<Book> create(@Valid @RequestBody Book book,
                                        UriComponentsBuilder uriBuilder) {
@@ -53,11 +57,14 @@ public class BookController {
         return ResponseEntity.created(location).body(saved);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
     @PutMapping("/{id}")
     public Book update(@PathVariable String id, @Valid @RequestBody Book book) {
         return service.update(id, book);
     }
 
+    // Controller lets staff in, but BookService.delete() narrows it to SUPERADMIN only
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable String id) {

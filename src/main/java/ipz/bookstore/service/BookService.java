@@ -3,6 +3,7 @@ package ipz.bookstore.service;
 import ipz.bookstore.exception.BookNotFoundException;
 import ipz.bookstore.model.Book;
 import ipz.bookstore.repository.BookRepository;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -52,6 +53,8 @@ public class BookService {
         return repository.save(existing);
     }
 
+    // Annotation on a service method: even if a controller lets ADMIN through, only SUPERADMIN deletes
+    @PreAuthorize("hasRole('SUPERADMIN')")
     public void delete(String id) {
         if (!repository.existsById(id)) {
             throw new BookNotFoundException(id);
