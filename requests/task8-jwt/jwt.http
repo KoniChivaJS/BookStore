@@ -1,0 +1,39 @@
+@host = http://localhost:8080
+@contentType = application/json
+
+# Users are stored in MongoDB (seeded by DataSeeder), passwords as BCrypt hashes:
+#   john@mail.com            / password    -> ADMIN
+#   user@bookstore.com       / user        -> USER
+#   admin@bookstore.com      / admin       -> ADMIN
+#   superadmin@bookstore.com / superadmin  -> SUPERADMIN
+
+### 1. Get a JWT for John (copy "token" into https://jwt.io)
+POST {{host}}/api/auth/authenticate
+Content-Type: {{contentType}}
+
+{
+  "email": "john@mail.com",
+  "password": "password"
+}
+
+> {%
+    client.test("Token issued: 200", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+        client.assert(response.body.token.split(".").length === 3, "Token should have 3 parts");
+    });
+%}
+
+### 2. Wrong password -> 401
+POST {{host}}/api/auth/authenticate
+Content-Type: {{contentType}}
+
+{
+  "email": "john@mail.com",
+  "password": "wrong-password"
+}
+
+> {%
+    client.test("Bad credentials: 401", () => {
+        client.assert(response.status === 401, "Expected 401 but got " + response.status);
+    });
+%}

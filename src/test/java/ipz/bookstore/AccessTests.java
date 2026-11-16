@@ -192,10 +192,10 @@ class AccessTests {
     // ---------- Real in-memory users and BCrypt passwords (no mock user) ----------
 
     @Test
-    @DisplayName("13. Basic auth user/user (real BCrypt password) -> /hello/user -> 200")
+    @DisplayName("13. Basic auth user@bookstore.com/user (real user from MongoDB) -> /hello/user -> 200")
     void realUserCredentialsWork() throws Exception {
         MvcResult result = mockMvc.perform(get("/api/hello/user")
-                .with(httpBasic("user", "user"))).andReturn();
+                .with(httpBasic("user@bookstore.com", "user"))).andReturn();
 
         assertEquals(200, result.getResponse().getStatus());
     }
@@ -204,7 +204,7 @@ class AccessTests {
     @DisplayName("14. Basic auth with wrong password -> 401")
     void wrongPasswordIsRejected() throws Exception {
         MvcResult result = mockMvc.perform(get("/api/hello/user")
-                .with(httpBasic("user", "wrong-password"))).andReturn();
+                .with(httpBasic("user@bookstore.com", "wrong-password"))).andReturn();
 
         assertEquals(401, result.getResponse().getStatus());
     }

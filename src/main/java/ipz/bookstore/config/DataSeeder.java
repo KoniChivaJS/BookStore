@@ -2,7 +2,11 @@ package ipz.bookstore.config;
 
 import ipz.bookstore.model.Book;
 import ipz.bookstore.repository.BookRepository;
+import ipz.bookstore.user.Role;
+import ipz.bookstore.user.User;
+import ipz.bookstore.user.UserRepository;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -11,13 +15,38 @@ import java.util.List;
 public class DataSeeder implements CommandLineRunner {
 
     private final BookRepository repository;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public DataSeeder(BookRepository repository) {
+    public DataSeeder(BookRepository repository, UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.repository = repository;
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
     public void run(String... args) {
+        seedUsers();
+        seedBooks();
+    }
+
+    // Users live in MongoDB now (Task 8); passwords stored as BCrypt hashes
+    private void seedUsers() {
+        saveUserIfMissing("John", "Smith", "john@mail.com", "password", Role.ADMIN);
+        saveUserIfMissing("Uma", "User", "user@bookstore.com", "user", Role.USER);
+        saveUserIfMissing("Adam", "Admin", "admin@bookstore.com", "admin", Role.ADMIN);
+        saveUserIfMissing("Sam", "Super", "superadmin@bookstore.com", "superadmin", Role.SUPERADMIN);
+    }
+
+    private void saveUserIfMissing(String firstName, String lastName, String email, String rawPassword, Role role) {
+        if (userRepository.existsByEmail(email)) {
+            return;
+        }
+        userRepository.save(new User(firstName, lastName, email,
+                passwordEncoder.encode(rawPassword), List.of(role)));
+    }
+
+    private void seedBooks() {
         if (repository.count() > 0) {
             return;
         }

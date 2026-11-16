@@ -8,7 +8,7 @@
 
 ### 1. USER -> /hello/user (only USER) -> 200
 GET {{host}}/api/hello/user
-Authorization: Basic user user
+Authorization: Basic user@bookstore.com user
 
 > {%
     client.test("user on /hello/user: 200", () => {
@@ -18,7 +18,7 @@ Authorization: Basic user user
 
 ### 2. ADMIN -> /hello/user (only USER) -> 403
 GET {{host}}/api/hello/user
-Authorization: Basic admin admin
+Authorization: Basic admin@bookstore.com admin
 
 > {%
     client.test("admin on /hello/user: 403", () => {
@@ -28,7 +28,7 @@ Authorization: Basic admin admin
 
 ### 3. ADMIN -> /hello/admin (only ADMIN) -> 200
 GET {{host}}/api/hello/admin
-Authorization: Basic admin admin
+Authorization: Basic admin@bookstore.com admin
 
 > {%
     client.test("admin on /hello/admin: 200", () => {
@@ -38,7 +38,7 @@ Authorization: Basic admin admin
 
 ### 4. USER -> /hello/admin (only ADMIN) -> 403
 GET {{host}}/api/hello/admin
-Authorization: Basic user user
+Authorization: Basic user@bookstore.com user
 
 > {%
     client.test("user on /hello/admin: 403", () => {
@@ -48,7 +48,7 @@ Authorization: Basic user user
 
 ### 5. SUPERADMIN -> /hello/superadmin (only SUPERADMIN) -> 200
 GET {{host}}/api/hello/superadmin
-Authorization: Basic superadmin superadmin
+Authorization: Basic superadmin@bookstore.com superadmin
 
 > {%
     client.test("superadmin on /hello/superadmin: 200", () => {
@@ -58,7 +58,7 @@ Authorization: Basic superadmin superadmin
 
 ### 6. ADMIN -> /hello/superadmin (only SUPERADMIN) -> 403
 GET {{host}}/api/hello/superadmin
-Authorization: Basic admin admin
+Authorization: Basic admin@bookstore.com admin
 
 > {%
     client.test("admin on /hello/superadmin: 403", () => {
@@ -68,7 +68,7 @@ Authorization: Basic admin admin
 
 ### 7. ADMIN -> /hello/staff (ADMIN or SUPERADMIN) -> 200
 GET {{host}}/api/hello/staff
-Authorization: Basic admin admin
+Authorization: Basic admin@bookstore.com admin
 
 > {%
     client.test("admin on /hello/staff: 200", () => {
@@ -78,7 +78,7 @@ Authorization: Basic admin admin
 
 ### 8. SUPERADMIN -> /hello/staff (ADMIN or SUPERADMIN) -> 200
 GET {{host}}/api/hello/staff
-Authorization: Basic superadmin superadmin
+Authorization: Basic superadmin@bookstore.com superadmin
 
 > {%
     client.test("superadmin on /hello/staff: 200", () => {
@@ -88,7 +88,7 @@ Authorization: Basic superadmin superadmin
 
 ### 9. USER -> /hello/staff (ADMIN or SUPERADMIN) -> 403
 GET {{host}}/api/hello/staff
-Authorization: Basic user user
+Authorization: Basic user@bookstore.com user
 
 > {%
     client.test("user on /hello/staff: 403", () => {
@@ -98,7 +98,7 @@ Authorization: Basic user user
 
 ### 10. USER -> /hello/any (no role rule, any logged-in user) -> 200
 GET {{host}}/api/hello/any
-Authorization: Basic user user
+Authorization: Basic user@bookstore.com user
 
 > {%
     client.test("user on /hello/any: 200", () => {
@@ -117,7 +117,7 @@ GET {{host}}/api/hello/any
 
 ### 12. WRONG password -> /hello/user -> 401
 GET {{host}}/api/hello/user
-Authorization: Basic user wrong-password
+Authorization: Basic user@bookstore.com wrong-password
 
 > {%
     client.test("wrong password: 401", () => {
@@ -128,7 +128,7 @@ Authorization: Basic user wrong-password
 ### 13. USER -> GET all books (everyone can read) -> 200
 GET {{host}}/api/books
 Accept: {{contentType}}
-Authorization: Basic user user
+Authorization: Basic user@bookstore.com user
 
 > {%
     client.test("user reads books: 200", () => {
@@ -139,7 +139,7 @@ Authorization: Basic user user
 ### 14. USER -> CREATE book (only ADMIN/SUPERADMIN) -> 403
 POST {{host}}/api/books
 Content-Type: {{contentType}}
-Authorization: Basic user user
+Authorization: Basic user@bookstore.com user
 
 {
   "title": "Refactoring",
@@ -160,7 +160,7 @@ Authorization: Basic user user
 ### 15. ADMIN -> CREATE book -> 201 (createdBy = admin)
 POST {{host}}/api/books
 Content-Type: {{contentType}}
-Authorization: Basic admin admin
+Authorization: Basic admin@bookstore.com admin
 
 {
   "title": "Refactoring",
@@ -176,14 +176,14 @@ Authorization: Basic admin admin
     client.global.set("bookId", response.body.id);
     client.test("admin creates book: 201", () => {
         client.assert(response.status === 201, "Expected 201 but got " + response.status);
-        client.assert(response.body.createdBy === "admin", "createdBy should be admin");
+        client.assert(response.body.createdBy === "admin@bookstore.com", "createdBy should be admin@bookstore.com");
     });
 %}
 
 ### 16. USER -> GET that book by id -> 200
 GET {{host}}/api/books/{{bookId}}
 Accept: {{contentType}}
-Authorization: Basic user user
+Authorization: Basic user@bookstore.com user
 
 > {%
     client.test("user reads one book: 200", () => {
@@ -194,7 +194,7 @@ Authorization: Basic user user
 ### 17. USER -> UPDATE that book (only ADMIN/SUPERADMIN) -> 403
 PUT {{host}}/api/books/{{bookId}}
 Content-Type: {{contentType}}
-Authorization: Basic user user
+Authorization: Basic user@bookstore.com user
 
 {
   "title": "Refactoring (2nd Edition)",
@@ -215,7 +215,7 @@ Authorization: Basic user user
 ### 18. SUPERADMIN -> UPDATE that book -> 200 (lastModifiedBy = superadmin)
 PUT {{host}}/api/books/{{bookId}}
 Content-Type: {{contentType}}
-Authorization: Basic superadmin superadmin
+Authorization: Basic superadmin@bookstore.com superadmin
 
 {
   "title": "Refactoring (2nd Edition)",
@@ -230,14 +230,14 @@ Authorization: Basic superadmin superadmin
 > {%
     client.test("superadmin updates book: 200", () => {
         client.assert(response.status === 200, "Expected 200 but got " + response.status);
-        client.assert(response.body.createdBy === "admin", "createdBy should stay admin");
-        client.assert(response.body.lastModifiedBy === "superadmin", "lastModifiedBy should be superadmin");
+        client.assert(response.body.createdBy === "admin@bookstore.com", "createdBy should stay admin@bookstore.com");
+        client.assert(response.body.lastModifiedBy === "superadmin@bookstore.com", "lastModifiedBy should be superadmin@bookstore.com");
     });
 %}
 
 ### 19. ADMIN -> DELETE that book (only SUPERADMIN) -> 403
 DELETE {{host}}/api/books/{{bookId}}
-Authorization: Basic admin admin
+Authorization: Basic admin@bookstore.com admin
 
 > {%
     client.test("admin deletes book: 403", () => {
@@ -247,7 +247,7 @@ Authorization: Basic admin admin
 
 ### 20. SUPERADMIN -> DELETE that book -> 204
 DELETE {{host}}/api/books/{{bookId}}
-Authorization: Basic superadmin superadmin
+Authorization: Basic superadmin@bookstore.com superadmin
 
 > {%
     client.test("superadmin deletes book: 204", () => {
