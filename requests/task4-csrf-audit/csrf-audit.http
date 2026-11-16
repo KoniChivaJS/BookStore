@@ -1,0 +1,84 @@
+@host = http://localhost:8080
+@contentType = application/json
+@username = admin
+@password = admin
+
+### 1. GET all books
+GET {{host}}/api/books
+Accept: {{contentType}}
+Authorization: Basic {{username}} {{password}}
+
+> {%
+    client.test("Show all: 200", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+%}
+
+### 2. CREATE a book (POST works because CSRF is disabled)
+POST {{host}}/api/books
+Content-Type: {{contentType}}
+Authorization: Basic {{username}} {{password}}
+
+{
+  "title": "Domain-Driven Design",
+  "author": "Eric Evans",
+  "genre": "Software Architecture",
+  "isbn": "9780321125217",
+  "price": 54.90,
+  "stock": 5,
+  "year": 2003
+}
+
+> {%
+    client.global.set("bookId", response.body.id);
+    client.test("Create one: 201 + audit fields", () => {
+        client.assert(response.status === 201, "Expected 201 but got " + response.status);
+        client.assert(response.body.createdBy === "admin", "createdBy should be admin");
+        client.assert(response.body.createdDate != null, "createdDate should be set");
+    });
+%}
+
+### 3. GET one book (the one we just created)
+GET {{host}}/api/books/{{bookId}}
+Accept: {{contentType}}
+Authorization: Basic {{username}} {{password}}
+
+> {%
+    client.test("Read one: 200", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+        client.assert(response.body.id === client.global.get("bookId"), "Wrong book returned");
+    });
+%}
+
+### 4. UPDATE that book (price + stock changed)
+PUT {{host}}/api/books/{{bookId}}
+Content-Type: {{contentType}}
+Authorization: Basic {{username}} {{password}}
+
+{
+  "title": "Domain-Driven Design",
+  "author": "Eric Evans",
+  "genre": "Software Architecture",
+  "isbn": "9780321125217",
+  "price": 49.99,
+  "stock": 8,
+  "year": 2003
+}
+
+> {%
+    client.test("Update one: 200 + audit fields", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+        client.assert(response.body.price === 49.99, "Price not updated");
+        client.assert(response.body.lastModifiedBy === "admin", "lastModifiedBy should be admin");
+    });
+%}
+
+### 5. DELETE that book
+DELETE {{host}}/api/books/{{bookId}}
+Authorization: Basic {{username}} {{password}}
+
+> {%
+    client.test("Delete one: 204", () => {
+        client.assert(response.status === 204, "Expected 204 but got " + response.status);
+    });
+%}
