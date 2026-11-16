@@ -1,0 +1,256 @@
+@host = http://localhost:8080
+@contentType = application/json
+
+# Users (in-memory, see SecurityConfig):
+#   user       / user        -> ROLE_USER
+#   admin      / admin       -> ROLE_ADMIN
+#   superadmin / superadmin  -> ROLE_SUPERADMIN
+
+### 1. USER -> /hello/user (only USER) -> 200
+GET {{host}}/api/hello/user
+Authorization: Basic user user
+
+> {%
+    client.test("user on /hello/user: 200", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+%}
+
+### 2. ADMIN -> /hello/user (only USER) -> 403
+GET {{host}}/api/hello/user
+Authorization: Basic admin admin
+
+> {%
+    client.test("admin on /hello/user: 403", () => {
+        client.assert(response.status === 403, "Expected 403 but got " + response.status);
+    });
+%}
+
+### 3. ADMIN -> /hello/admin (only ADMIN) -> 200
+GET {{host}}/api/hello/admin
+Authorization: Basic admin admin
+
+> {%
+    client.test("admin on /hello/admin: 200", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+%}
+
+### 4. USER -> /hello/admin (only ADMIN) -> 403
+GET {{host}}/api/hello/admin
+Authorization: Basic user user
+
+> {%
+    client.test("user on /hello/admin: 403", () => {
+        client.assert(response.status === 403, "Expected 403 but got " + response.status);
+    });
+%}
+
+### 5. SUPERADMIN -> /hello/superadmin (only SUPERADMIN) -> 200
+GET {{host}}/api/hello/superadmin
+Authorization: Basic superadmin superadmin
+
+> {%
+    client.test("superadmin on /hello/superadmin: 200", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+%}
+
+### 6. ADMIN -> /hello/superadmin (only SUPERADMIN) -> 403
+GET {{host}}/api/hello/superadmin
+Authorization: Basic admin admin
+
+> {%
+    client.test("admin on /hello/superadmin: 403", () => {
+        client.assert(response.status === 403, "Expected 403 but got " + response.status);
+    });
+%}
+
+### 7. ADMIN -> /hello/staff (ADMIN or SUPERADMIN) -> 200
+GET {{host}}/api/hello/staff
+Authorization: Basic admin admin
+
+> {%
+    client.test("admin on /hello/staff: 200", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+%}
+
+### 8. SUPERADMIN -> /hello/staff (ADMIN or SUPERADMIN) -> 200
+GET {{host}}/api/hello/staff
+Authorization: Basic superadmin superadmin
+
+> {%
+    client.test("superadmin on /hello/staff: 200", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+%}
+
+### 9. USER -> /hello/staff (ADMIN or SUPERADMIN) -> 403
+GET {{host}}/api/hello/staff
+Authorization: Basic user user
+
+> {%
+    client.test("user on /hello/staff: 403", () => {
+        client.assert(response.status === 403, "Expected 403 but got " + response.status);
+    });
+%}
+
+### 10. USER -> /hello/any (no role rule, any logged-in user) -> 200
+GET {{host}}/api/hello/any
+Authorization: Basic user user
+
+> {%
+    client.test("user on /hello/any: 200", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+%}
+
+### 11. NO credentials -> /hello/any -> 401
+GET {{host}}/api/hello/any
+
+> {%
+    client.test("anonymous on /hello/any: 401", () => {
+        client.assert(response.status === 401, "Expected 401 but got " + response.status);
+    });
+%}
+
+### 12. WRONG password -> /hello/user -> 401
+GET {{host}}/api/hello/user
+Authorization: Basic user wrong-password
+
+> {%
+    client.test("wrong password: 401", () => {
+        client.assert(response.status === 401, "Expected 401 but got " + response.status);
+    });
+%}
+
+### 13. USER -> GET all books (everyone can read) -> 200
+GET {{host}}/api/books
+Accept: {{contentType}}
+Authorization: Basic user user
+
+> {%
+    client.test("user reads books: 200", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+%}
+
+### 14. USER -> CREATE book (only ADMIN/SUPERADMIN) -> 403
+POST {{host}}/api/books
+Content-Type: {{contentType}}
+Authorization: Basic user user
+
+{
+  "title": "Refactoring",
+  "author": "Martin Fowler",
+  "genre": "Programming",
+  "isbn": "9780134757599",
+  "price": 47.00,
+  "stock": 3,
+  "year": 2018
+}
+
+> {%
+    client.test("user creates book: 403", () => {
+        client.assert(response.status === 403, "Expected 403 but got " + response.status);
+    });
+%}
+
+### 15. ADMIN -> CREATE book -> 201 (createdBy = admin)
+POST {{host}}/api/books
+Content-Type: {{contentType}}
+Authorization: Basic admin admin
+
+{
+  "title": "Refactoring",
+  "author": "Martin Fowler",
+  "genre": "Programming",
+  "isbn": "9780134757599",
+  "price": 47.00,
+  "stock": 3,
+  "year": 2018
+}
+
+> {%
+    client.global.set("bookId", response.body.id);
+    client.test("admin creates book: 201", () => {
+        client.assert(response.status === 201, "Expected 201 but got " + response.status);
+        client.assert(response.body.createdBy === "admin", "createdBy should be admin");
+    });
+%}
+
+### 16. USER -> GET that book by id -> 200
+GET {{host}}/api/books/{{bookId}}
+Accept: {{contentType}}
+Authorization: Basic user user
+
+> {%
+    client.test("user reads one book: 200", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+%}
+
+### 17. USER -> UPDATE that book (only ADMIN/SUPERADMIN) -> 403
+PUT {{host}}/api/books/{{bookId}}
+Content-Type: {{contentType}}
+Authorization: Basic user user
+
+{
+  "title": "Refactoring (2nd Edition)",
+  "author": "Martin Fowler",
+  "genre": "Programming",
+  "isbn": "9780134757599",
+  "price": 1.00,
+  "stock": 3,
+  "year": 2018
+}
+
+> {%
+    client.test("user updates book: 403", () => {
+        client.assert(response.status === 403, "Expected 403 but got " + response.status);
+    });
+%}
+
+### 18. SUPERADMIN -> UPDATE that book -> 200 (lastModifiedBy = superadmin)
+PUT {{host}}/api/books/{{bookId}}
+Content-Type: {{contentType}}
+Authorization: Basic superadmin superadmin
+
+{
+  "title": "Refactoring (2nd Edition)",
+  "author": "Martin Fowler",
+  "genre": "Programming",
+  "isbn": "9780134757599",
+  "price": 44.50,
+  "stock": 6,
+  "year": 2018
+}
+
+> {%
+    client.test("superadmin updates book: 200", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+        client.assert(response.body.createdBy === "admin", "createdBy should stay admin");
+        client.assert(response.body.lastModifiedBy === "superadmin", "lastModifiedBy should be superadmin");
+    });
+%}
+
+### 19. ADMIN -> DELETE that book (only SUPERADMIN) -> 403
+DELETE {{host}}/api/books/{{bookId}}
+Authorization: Basic admin admin
+
+> {%
+    client.test("admin deletes book: 403", () => {
+        client.assert(response.status === 403, "Expected 403 but got " + response.status);
+    });
+%}
+
+### 20. SUPERADMIN -> DELETE that book -> 204
+DELETE {{host}}/api/books/{{bookId}}
+Authorization: Basic superadmin superadmin
+
+> {%
+    client.test("superadmin deletes book: 204", () => {
+        client.assert(response.status === 204, "Expected 204 but got " + response.status);
+    });
+%}
