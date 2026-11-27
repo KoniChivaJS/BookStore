@@ -1,0 +1,211 @@
+@host = http://localhost:8080
+@contentType = application/json
+
+# Task 9: every request below sends "Authorization: Bearer <JWT>" instead of Basic auth.
+# Run top-to-bottom: the 4 logins save one token per user, the rest reuse them.
+#   user@bookstore.com       / user        -> USER
+#   admin@bookstore.com      / admin       -> ADMIN
+#   superadmin@bookstore.com / superadmin  -> SUPERADMIN
+#   john@mail.com            / password    -> ADMIN
+
+### L1. Login as USER -> save token as {{userToken}}
+POST {{host}}/api/auth/authenticate
+Content-Type: {{contentType}}
+
+{
+  "email": "user@bookstore.com",
+  "password": "user"
+}
+
+> {%
+    client.global.set("userToken", response.body.token);
+%}
+
+### L2. Login as ADMIN -> save token as {{adminToken}}
+POST {{host}}/api/auth/authenticate
+Content-Type: {{contentType}}
+
+{
+  "email": "admin@bookstore.com",
+  "password": "admin"
+}
+
+> {%
+    client.global.set("adminToken", response.body.token);
+%}
+
+### L3. Login as SUPERADMIN -> save token as {{superToken}}
+POST {{host}}/api/auth/authenticate
+Content-Type: {{contentType}}
+
+{
+  "email": "superadmin@bookstore.com",
+  "password": "superadmin"
+}
+
+> {%
+    client.global.set("superToken", response.body.token);
+%}
+
+### L4. Login as John (ADMIN) -> save token as {{johnToken}}
+POST {{host}}/api/auth/authenticate
+Content-Type: {{contentType}}
+
+{
+  "email": "john@mail.com",
+  "password": "password"
+}
+
+> {%
+    client.global.set("johnToken", response.body.token);
+%}
+
+### 1. ADMIN token -> /hello/admin -> 200
+GET {{host}}/api/hello/admin
+Authorization: Bearer {{adminToken}}
+
+> {%
+    client.test("ADMIN token -> /hello/admin: 200", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+%}
+
+### 2. USER token -> /hello/admin -> 403
+GET {{host}}/api/hello/admin
+Authorization: Bearer {{userToken}}
+
+> {%
+    client.test("USER token -> /hello/admin: 403", () => {
+        client.assert(response.status === 403, "Expected 403 but got " + response.status);
+    });
+%}
+
+### 3. USER token -> /hello/user -> 200
+GET {{host}}/api/hello/user
+Authorization: Bearer {{userToken}}
+
+> {%
+    client.test("USER token -> /hello/user: 200", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+%}
+
+### 4. ADMIN token -> /hello/user -> 403
+GET {{host}}/api/hello/user
+Authorization: Bearer {{adminToken}}
+
+> {%
+    client.test("ADMIN token -> /hello/user: 403", () => {
+        client.assert(response.status === 403, "Expected 403 but got " + response.status);
+    });
+%}
+
+### 5. SUPERADMIN token -> /hello/superadmin -> 200
+GET {{host}}/api/hello/superadmin
+Authorization: Bearer {{superToken}}
+
+> {%
+    client.test("SUPERADMIN token -> /hello/superadmin: 200", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+%}
+
+### 6. ADMIN token -> /hello/superadmin -> 403
+GET {{host}}/api/hello/superadmin
+Authorization: Bearer {{adminToken}}
+
+> {%
+    client.test("ADMIN token -> /hello/superadmin: 403", () => {
+        client.assert(response.status === 403, "Expected 403 but got " + response.status);
+    });
+%}
+
+### 7. John (ADMIN) token -> /hello/staff -> 200
+GET {{host}}/api/hello/staff
+Authorization: Bearer {{johnToken}}
+
+> {%
+    client.test("John (ADMIN) token -> /hello/staff: 200", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+%}
+
+### 8. USER token -> /hello/staff -> 403
+GET {{host}}/api/hello/staff
+Authorization: Bearer {{userToken}}
+
+> {%
+    client.test("USER token -> /hello/staff: 403", () => {
+        client.assert(response.status === 403, "Expected 403 but got " + response.status);
+    });
+%}
+
+### 9. USER token -> /hello/any (no annotation) -> 200
+GET {{host}}/api/hello/any
+Authorization: Bearer {{userToken}}
+
+> {%
+    client.test("USER token -> /hello/any (no annotation): 200", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+%}
+
+### 10. USER token -> GET /api/books -> 200
+GET {{host}}/api/books
+Authorization: Bearer {{userToken}}
+
+> {%
+    client.test("USER token -> GET /api/books: 200", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+%}
+
+### 11. USER token -> POST /api/books -> 403
+POST {{host}}/api/books
+Content-Type: {{contentType}}
+Authorization: Bearer {{userToken}}
+
+{
+  "title": "Refactoring",
+  "author": "Martin Fowler",
+  "genre": "Programming",
+  "isbn": "9780134757599",
+  "price": 47.00,
+  "stock": 3,
+  "year": 2018
+}
+
+> {%
+    client.test("USER token -> POST /api/books: 403", () => {
+        client.assert(response.status === 403, "Expected 403 but got " + response.status);
+    });
+%}
+
+### 12. ADMIN token -> DELETE /api/books/{id} (only SUPERADMIN) -> 403
+DELETE {{host}}/api/books/000000000000000000000000
+Authorization: Bearer {{adminToken}}
+
+> {%
+    client.test("ADMIN token -> DELETE /api/books/{id} (only SUPERADMIN): 403", () => {
+        client.assert(response.status === 403, "Expected 403 but got " + response.status);
+    });
+%}
+
+### 13. No token -> GET /api/books -> 401
+GET {{host}}/api/books
+
+> {%
+    client.test("No token -> GET /api/books: 401", () => {
+        client.assert(response.status === 401, "Expected 401 but got " + response.status);
+    });
+%}
+
+### 14. Forged token -> GET /api/books -> 401
+GET {{host}}/api/books
+Authorization: Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbkBib29rc3RvcmUuY29tIn0.forged-signature
+
+> {%
+    client.test("Forged token: 401", () => {
+        client.assert(response.status === 401, "Expected 401 but got " + response.status);
+    });
+%}
