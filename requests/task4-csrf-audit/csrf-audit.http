@@ -1,6 +1,6 @@
 @host = http://localhost:8080
 @contentType = application/json
-@username = admin
+@username = admin@bookstore.com
 @password = admin
 
 ### 1. GET all books
@@ -33,7 +33,7 @@ Authorization: Basic {{username}} {{password}}
     client.global.set("bookId", response.body.id);
     client.test("Create one: 201 + audit fields", () => {
         client.assert(response.status === 201, "Expected 201 but got " + response.status);
-        client.assert(response.body.createdBy === "admin", "createdBy should be admin");
+        client.assert(response.body.createdBy === "admin@bookstore.com", "createdBy should be admin@bookstore.com");
         client.assert(response.body.createdDate != null, "createdDate should be set");
     });
 %}
@@ -69,7 +69,7 @@ Authorization: Basic {{username}} {{password}}
     client.test("Update one: 200 + audit fields", () => {
         client.assert(response.status === 200, "Expected 200 but got " + response.status);
         client.assert(response.body.price === 49.99, "Price not updated");
-        client.assert(response.body.lastModifiedBy === "admin", "lastModifiedBy should be admin");
+        client.assert(response.body.lastModifiedBy === "admin@bookstore.com", "lastModifiedBy should be admin@bookstore.com");
     });
 %}
 
