@@ -15,13 +15,16 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+import java.util.Base64;
+import java.util.Date;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
-// JWT issuing (Task 8): POST /api/auth/authenticate with a seeded MongoDB user.
+// JWT issuing (Task 8) and using the token as "Authorization: Bearer <JWT>" (Task 9).
 @SpringBootTest
 class AuthenticationTests {
 
@@ -71,6 +74,73 @@ class AuthenticationTests {
         MvcResult result = mockMvc.perform(post("/api/auth/authenticate")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"john@mail.com\",\"password\":\"wrong-password\"}")).andReturn();
+
+        assertEquals(401, result.getResponse().getStatus());
+    }
+
+    // ---------- Task 9: Bearer token on protected routes ----------
+
+    private String loginAndGetToken(String email, String password) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/auth/authenticate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}")).andReturn();
+        return new ObjectMapper()
+                .readTree(result.getResponse().getContentAsString())
+                .get("token").asText();
+    }
+
+    @Test
+    @DisplayName("Bearer ADMIN token -> /hello/admin -> 200, logged in as the token's user")
+    void adminTokenOpensAdminRoute() throws Exception {
+        String token = loginAndGetToken("admin@bookstore.com", "admin");
+
+        MvcResult result = mockMvc.perform(get("/api/hello/admin")
+                .header("Authorization", "Bearer " + token)).andReturn();
+
+        assertEquals(200, result.getResponse().getStatus());
+        assertEquals("Hello ADMIN route, you are: admin@bookstore.com", result.getResponse().getContentAsString());
+    }
+
+    @Test
+    @DisplayName("Bearer USER token -> /hello/admin -> 403")
+    void userTokenCannotOpenAdminRoute() throws Exception {
+        String token = loginAndGetToken("user@bookstore.com", "user");
+
+        MvcResult result = mockMvc.perform(get("/api/hello/admin")
+                .header("Authorization", "Bearer " + token)).andReturn();
+
+        assertEquals(403, result.getResponse().getStatus());
+    }
+
+    @Test
+    @DisplayName("Token with a changed payload (signature no longer matches) -> 401")
+    void tamperedTokenIsRejected() throws Exception {
+        String token = loginAndGetToken("user@bookstore.com", "user");
+        String[] parts = token.split("\\.");
+        // Swap in a payload that claims to be the superadmin, keep the user's signature
+        String fakePayload = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString("{\"sub\":\"superadmin@bookstore.com\"}".getBytes());
+        String forged = parts[0] + "." + fakePayload + "." + parts[2];
+
+        MvcResult result = mockMvc.perform(get("/api/hello/superadmin")
+                .header("Authorization", "Bearer " + forged)).andReturn();
+
+        assertEquals(401, result.getResponse().getStatus());
+    }
+
+    @Test
+    @DisplayName("Expired token (correctly signed) -> 401")
+    void expiredTokenIsRejected() throws Exception {
+        long hourAgo = System.currentTimeMillis() - 3_600_000;
+        String expired = Jwts.builder()
+                .subject("admin@bookstore.com")
+                .issuedAt(new Date(hourAgo - 1000))
+                .expiration(new Date(hourAgo))
+                .signWith(jwtService.getSignInKey())
+                .compact();
+
+        MvcResult result = mockMvc.perform(get("/api/hello/admin")
+                .header("Authorization", "Bearer " + expired)).andReturn();
 
         assertEquals(401, result.getResponse().getStatus());
     }
