@@ -22,7 +22,9 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
 // JWT issuing (Task 8) and using the token as "Authorization: Bearer <JWT>" (Task 9).
 @SpringBootTest
@@ -143,5 +145,37 @@ class AuthenticationTests {
                 .header("Authorization", "Bearer " + expired)).andReturn();
 
         assertEquals(401, result.getResponse().getStatus());
+    }
+
+    // ---------- Task 10: audit fields come from the JWT user ----------
+
+    @Test
+    @DisplayName("Audit: ADMIN token creates, SUPERADMIN token updates and deletes -> createdBy/lastModifiedBy from JWT")
+    void auditFieldsComeFromToken() throws Exception {
+        String adminToken = loginAndGetToken("admin@bookstore.com", "admin");
+        String superToken = loginAndGetToken("superadmin@bookstore.com", "superadmin");
+        String book = "{\"title\":\"Effective Java\",\"author\":\"Joshua Bloch\",\"price\":45,\"stock\":4,\"year\":2018}";
+        ObjectMapper json = new ObjectMapper();
+
+        MvcResult created = mockMvc.perform(post("/api/books")
+                .header("Authorization", "Bearer " + adminToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(book)).andReturn();
+        assertEquals(201, created.getResponse().getStatus());
+        var createdBody = json.readTree(created.getResponse().getContentAsString());
+        String id = createdBody.get("id").asText();
+        assertEquals("admin@bookstore.com", createdBody.get("createdBy").asText());
+
+        MvcResult updated = mockMvc.perform(put("/api/books/" + id)
+                .header("Authorization", "Bearer " + superToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(book)).andReturn();
+        var updatedBody = json.readTree(updated.getResponse().getContentAsString());
+        assertEquals("admin@bookstore.com", updatedBody.get("createdBy").asText());
+        assertEquals("superadmin@bookstore.com", updatedBody.get("lastModifiedBy").asText());
+
+        MvcResult deleted = mockMvc.perform(delete("/api/books/" + id)
+                .header("Authorization", "Bearer " + superToken)).andReturn();
+        assertEquals(204, deleted.getResponse().getStatus());
     }
 }

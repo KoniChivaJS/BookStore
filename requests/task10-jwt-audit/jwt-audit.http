@@ -1,0 +1,145 @@
+@host = http://localhost:8080
+@contentType = application/json
+
+# Task 10: audit with JWT. createdBy / lastModifiedBy are filled from the token's user (email);
+# deletes are written to the app log as "AUDIT: book id=... was deleted by ... at ...".
+# Run top-to-bottom: logins save tokens, "Create" saves the book id.
+
+### L1. Login as ADMIN -> {{adminToken}}
+POST {{host}}/api/auth/authenticate
+Content-Type: {{contentType}}
+
+{ "email": "admin@bookstore.com", "password": "admin" }
+
+> {% client.global.set("adminToken", response.body.token); %}
+
+### L2. Login as SUPERADMIN -> {{superToken}}
+POST {{host}}/api/auth/authenticate
+Content-Type: {{contentType}}
+
+{ "email": "superadmin@bookstore.com", "password": "superadmin" }
+
+> {% client.global.set("superToken", response.body.token); %}
+
+### L3. Login as USER -> {{userToken}}
+POST {{host}}/api/auth/authenticate
+Content-Type: {{contentType}}
+
+{ "email": "user@bookstore.com", "password": "user" }
+
+> {% client.global.set("userToken", response.body.token); %}
+
+### 1. ADMIN creates a book -> 201, createdBy = admin@bookstore.com
+POST {{host}}/api/books
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "title": "Effective Java",
+  "author": "Joshua Bloch",
+  "genre": "Programming",
+  "isbn": "9780134685991",
+  "price": 45.00,
+  "stock": 4,
+  "year": 2018
+}
+
+> {%
+    client.global.set("bookId", response.body.id);
+    client.test("Create: 201 + createdBy from JWT", () => {
+        client.assert(response.status === 201, "Expected 201 but got " + response.status);
+        client.assert(response.body.createdBy === "admin@bookstore.com", "createdBy should be admin@bookstore.com");
+        client.assert(response.body.lastModifiedBy === "admin@bookstore.com", "lastModifiedBy should be admin@bookstore.com");
+    });
+%}
+
+### 2. SUPERADMIN updates it -> 200, createdBy stays admin, lastModifiedBy = superadmin
+PUT {{host}}/api/books/{{bookId}}
+Content-Type: {{contentType}}
+Authorization: Bearer {{superToken}}
+
+{
+  "title": "Effective Java (3rd Edition)",
+  "author": "Joshua Bloch",
+  "genre": "Programming",
+  "isbn": "9780134685991",
+  "price": 39.90,
+  "stock": 10,
+  "year": 2018
+}
+
+> {%
+    client.test("Update: 200 + lastModifiedBy from JWT", () => {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+        client.assert(response.body.createdBy === "admin@bookstore.com", "createdBy should stay admin@bookstore.com");
+        client.assert(response.body.lastModifiedBy === "superadmin@bookstore.com", "lastModifiedBy should be superadmin@bookstore.com");
+    });
+%}
+
+### 3. ADMIN tries to delete it -> 403 (only SUPERADMIN deletes)
+DELETE {{host}}/api/books/{{bookId}}
+Authorization: Bearer {{adminToken}}
+
+> {%
+    client.test("Delete by ADMIN: 403", () => {
+        client.assert(response.status === 403, "Expected 403 but got " + response.status);
+    });
+%}
+
+### 4. SUPERADMIN deletes it -> 204, see "AUDIT: ... deleted by superadmin@bookstore.com" in the app log
+DELETE {{host}}/api/books/{{bookId}}
+Authorization: Bearer {{superToken}}
+
+> {%
+    client.test("Delete by SUPERADMIN: 204", () => {
+        client.assert(response.status === 204, "Expected 204 but got " + response.status);
+    });
+%}
+
+### 5. USER tries to create a book -> 403
+POST {{host}}/api/books
+Content-Type: {{contentType}}
+Authorization: Bearer {{userToken}}
+
+{ "title": "Nope", "author": "Nobody", "price": 1, "stock": 1, "year": 2000 }
+
+> {%
+    client.test("Create by USER: 403", () => {
+        client.assert(response.status === 403, "Expected 403 but got " + response.status);
+    });
+%}
+
+### 6. Create without a token -> 401
+POST {{host}}/api/books
+Content-Type: {{contentType}}
+
+{ "title": "Nope", "author": "Nobody", "price": 1, "stock": 1, "year": 2000 }
+
+> {%
+    client.test("Create without token: 401", () => {
+        client.assert(response.status === 401, "Expected 401 but got " + response.status);
+    });
+%}
+
+### 7. Create with a forged token -> 401
+POST {{host}}/api/books
+Content-Type: {{contentType}}
+Authorization: Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbkBib29rc3RvcmUuY29tIn0.forged-signature
+
+{ "title": "Nope", "author": "Nobody", "price": 1, "stock": 1, "year": 2000 }
+
+> {%
+    client.test("Create with forged token: 401", () => {
+        client.assert(response.status === 401, "Expected 401 but got " + response.status);
+    });
+%}
+
+### 8. SUPERADMIN deletes the same book again -> 404 (already gone)
+DELETE {{host}}/api/books/{{bookId}}
+Authorization: Bearer {{superToken}}
+
+> {%
+    client.test("Delete again: 404", () => {
+        client.assert(response.status === 404, "Expected 404 but got " + response.status);
+    });
+%}
