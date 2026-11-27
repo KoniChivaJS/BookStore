@@ -7,8 +7,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.Optional;
 
-// Tells Spring Data who the "current auditor" is: the logged-in Basic auth user,
-// or "system" for writes made outside an HTTP request (e.g. DataSeeder on startup).
+// Tells Spring Data who the "current auditor" is, for createdBy / lastModifiedBy.
+// The user comes from the JWT: JwtAuthenticationFilter puts it into the SecurityContext,
+// and getName() returns the token's subject (the email). Also works for Basic auth.
+// "system" for writes made outside an HTTP request (e.g. DataSeeder on startup).
 public class AuditorAwareImpl implements AuditorAware<String> {
 
     @Override
